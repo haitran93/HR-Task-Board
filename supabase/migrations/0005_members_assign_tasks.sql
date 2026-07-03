@@ -4,5 +4,5 @@
 -- everyone group-assignment modes, but that's a UI restriction, not a DB
 -- one, so the insert policy needs to allow it at the database level too.
 
-drop policy tasks_insert on tasks;
+drop policy if exists tasks_insert on tasks;
 create policy tasks_insert on tasks for insert with check (auth.role() = 'authenticated');
