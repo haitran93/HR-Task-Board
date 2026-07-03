@@ -1,17 +1,19 @@
 import { startOfWeek, addDays, format, isToday, isWeekend } from 'date-fns'
 
-export default function WeekStrip({ tasks, projectsById }) {
+export default function WeekStrip({ openTasks, doneTasks, projectsById }) {
   const start = startOfWeek(new Date(), { weekStartsOn: 1 })
-  const days = Array.from({ length: 7 }, (_, i) => addDays(start, i))
+  const days = Array.from({ length: 14 }, (_, i) => addDays(start, i))
 
   return (
-    <div className="grid grid-cols-7 gap-[10px]">
+    <div className="grid grid-cols-7 gap-x-[10px] gap-y-[16px]">
       {days.map((day) => {
         const dateStr = format(day, 'yyyy-MM-dd')
         const today = isToday(day)
         const weekend = isWeekend(day)
-        const dueTasks = tasks.filter((t) => t.due_date === dateStr)
-        const count = dueTasks.length
+        const dueTasks = openTasks.filter((t) => t.due_date === dateStr)
+        const doneToday = doneTasks.filter((t) => t.completed_at?.slice(0, 10) === dateStr)
+        const dueCount = dueTasks.length
+        const doneCount = doneToday.length
         const accentColor = projectsById[dueTasks[0]?.project_id]?.color ?? '#6F6A60'
 
         return (
@@ -24,30 +26,24 @@ export default function WeekStrip({ tasks, projectsById }) {
               {format(day, 'EEE d').toUpperCase()}
             </div>
             {weekend ? (
-              <div className="border-2 border-dashed border-faded rounded-chip h-11" />
-            ) : today ? (
-              <div
-                className="border-2 border-ink rounded-chip h-11 bg-ink flex items-center justify-center gap-[6px]"
-                style={{ boxShadow: '3px 3px 0 #E4572E' }}
-              >
-                <span className="text-accent font-bold text-[13px]">TODAY</span>
-                {count > 0 && (
-                  <span className="w-5 h-5 rounded-full bg-accent text-ink text-[11px] font-bold flex items-center justify-center">
-                    {count}
-                  </span>
-                )}
-              </div>
+              <div className="border-2 border-dashed border-faded rounded-chip h-14" />
             ) : (
               <div
-                className="relative border-2 border-ink rounded-chip h-11 bg-white flex items-center justify-center overflow-hidden"
+                className="relative border-2 border-ink rounded-chip h-14 bg-white flex items-center justify-center overflow-hidden"
+                style={today ? { boxShadow: '3px 3px 0 #E4572E' } : undefined}
               >
-                {count > 0 && (
+                {dueCount > 0 && (
                   <>
-                    <span className="font-bold text-base" style={{ color: accentColor }}>
-                      {count}
+                    <span className="font-bold text-lg" style={{ color: accentColor }}>
+                      {dueCount}
                     </span>
                     <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{ background: accentColor }} />
                   </>
+                )}
+                {doneCount > 0 && (
+                  <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-program-training text-white text-[9px] font-bold flex items-center justify-center">
+                    {doneCount}
+                  </span>
                 )}
               </div>
             )}
