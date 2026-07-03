@@ -3,7 +3,7 @@ import StickyNote from './StickyNote'
 
 const DRAG_THRESHOLD = 5
 
-export default function StickyBoard({ ideas, peopleById, currentUserId, onMove, onCreateAt, onDelete }) {
+export default function StickyBoard({ ideas, peopleById, functionsById = {}, currentUserId, onMove, onCreateAt, onDelete }) {
   const boardRef = useRef(null)
   const [localPositions, setLocalPositions] = useState({})
   const dragState = useRef(null)
@@ -73,6 +73,7 @@ export default function StickyBoard({ ideas, peopleById, currentUserId, onMove, 
             key={idea.id}
             idea={idea}
             author={peopleById[idea.author_id]}
+            functionName={functionsById[idea.shared_function_id]?.name}
             isOwn={isOwn}
             style={{ left: pos.x, top: pos.y }}
             onPointerDown={(e) => handlePointerDown(e, idea)}

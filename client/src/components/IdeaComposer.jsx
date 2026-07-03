@@ -5,13 +5,14 @@ import { useCurrentUser } from '../lib/currentUser'
 
 const COLORS = ['yellow', 'green', 'pink', 'blue']
 
-export default function IdeaComposer({ x, y, myFunctions, onClose }) {
+export default function IdeaComposer({ x, y, myFunctions, defaultVisibility = '', onClose }) {
   const { currentUser } = useCurrentUser()
   const queryClient = useQueryClient()
   const [text, setText] = useState('')
   const [imageFile, setImageFile] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
-  const [shareFunctionId, setShareFunctionId] = useState('') // '' = private
+  // '' = private, 'everyone' = HR team, otherwise a function id
+  const [visibilityChoice, setVisibilityChoice] = useState(defaultVisibility)
   const [color] = useState(() => COLORS[Math.floor(Math.random() * COLORS.length)])
 
   function handlePaste(e) {
@@ -35,6 +36,7 @@ export default function IdeaComposer({ x, y, myFunctions, onClose }) {
     mutationFn: async () => {
       let imageUrl = null
       if (imageFile) imageUrl = await api.uploadIdeaImage(imageFile)
+      const visibility = visibilityChoice === '' ? 'private' : visibilityChoice === 'everyone' ? 'everyone' : 'function'
       return api.createIdea({
         authorId: currentUser.id,
         text: text.trim() || null,
@@ -42,8 +44,8 @@ export default function IdeaComposer({ x, y, myFunctions, onClose }) {
         x,
         y,
         color,
-        visibility: shareFunctionId ? 'function' : 'private',
-        sharedFunctionId: shareFunctionId || null,
+        visibility,
+        sharedFunctionId: visibility === 'function' ? visibilityChoice : null,
       })
     },
     onSuccess: () => {
@@ -95,16 +97,17 @@ export default function IdeaComposer({ x, y, myFunctions, onClose }) {
         <label className="flex flex-col gap-1 text-sm font-semibold">
           Visibility
           <select
-            value={shareFunctionId}
-            onChange={(e) => setShareFunctionId(e.target.value)}
+            value={visibilityChoice}
+            onChange={(e) => setVisibilityChoice(e.target.value)}
             className="border-2 border-ink rounded-btn px-2 py-2 font-medium text-sm"
           >
-            <option value="">Private (only me)</option>
+            <option value="">Self (only me)</option>
             {myFunctions.map((f) => (
               <option key={f.id} value={f.id}>
-                Share to {f.name}
+                {f.name}
               </option>
             ))}
+            <option value="everyone">HR team (everyone)</option>
           </select>
         </label>
 

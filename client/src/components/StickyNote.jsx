@@ -5,7 +5,10 @@ const COLOR_HEX = {
   blue: '#CFD8F9',
 }
 
-export default function StickyNote({ idea, author, isOwn, style, onPointerDown, onDelete }) {
+export default function StickyNote({ idea, author, functionName, isOwn, style, onPointerDown, onDelete }) {
+  const badge =
+    idea.visibility === 'everyone' ? 'HR team' : idea.visibility === 'function' ? functionName ?? 'shared' : null
+
   return (
     <div
       onPointerDown={isOwn ? onPointerDown : undefined}
@@ -28,10 +31,8 @@ export default function StickyNote({ idea, author, isOwn, style, onPointerDown, 
           ×
         </button>
       )}
-      {idea.visibility === 'function' && (
-        <div className="inline-block text-[10px] font-bold bg-ink text-white rounded px-2 py-[2px] mb-2">
-          shared
-        </div>
+      {badge && (
+        <div className="inline-block text-[10px] font-bold bg-ink text-white rounded px-2 py-[2px] mb-2">{badge}</div>
       )}
       {idea.image_url && (
         <img src={idea.image_url} alt="" className="w-full rounded-[2px] border border-ink/20 mb-2 max-h-[140px] object-cover" />

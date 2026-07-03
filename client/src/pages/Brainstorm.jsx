@@ -9,8 +9,7 @@ import IdeaComposer from '../components/IdeaComposer'
 export default function Brainstorm() {
   const { currentUser, people } = useCurrentUser()
   const queryClient = useQueryClient()
-  const [view, setView] = useState('mine') // 'mine' | 'team'
-  const [teamFunctionId, setTeamFunctionId] = useState(null)
+  const [view, setView] = useState('self') // 'self' | 'everyone' | a function id
   const [composerAt, setComposerAt] = useState(null) // { x, y } while open
 
   const { data: ideas = [] } = useQuery({ queryKey: ['ideas'], queryFn: api.getIdeas, enabled: !!currentUser })
@@ -18,16 +17,15 @@ export default function Brainstorm() {
   const { data: personFunctions = [] } = useQuery({ queryKey: ['personFunctions'], queryFn: api.getPersonFunctions })
 
   const peopleById = useMemo(() => Object.fromEntries(people.map((p) => [p.id, p])), [people])
+  const functionsById = useMemo(() => Object.fromEntries(functions.map((f) => [f.id, f])), [functions])
 
   const myFunctionIds = useMemo(
     () => personFunctions.filter((pf) => pf.person_id === currentUser?.id).map((pf) => pf.function_id),
     [personFunctions, currentUser]
   )
-  const myFunctions = functions.filter((f) => myFunctionIds.includes(f.id))
-  // Admins can browse (and post to) any function's wall, not just their own —
-  // they already see every function-shared idea via RLS, this just exposes it in the UI.
-  const viewableFunctions = currentUser?.isAdmin ? functions : myFunctions
-  const activeFunctionId = teamFunctionId ?? viewableFunctions[0]?.id ?? null
+  // Admins can see (and post to) every function's wall — they already can via RLS,
+  // this just surfaces it as its own named tab instead of a combined picker.
+  const viewableFunctions = currentUser?.isAdmin ? functions : functions.filter((f) => myFunctionIds.includes(f.id))
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['ideas'] })
 
@@ -43,9 +41,14 @@ export default function Brainstorm() {
   if (!currentUser) return null
 
   const visibleIdeas =
-    view === 'mine'
+    view === 'self'
       ? ideas.filter((i) => i.author_id === currentUser.id)
-      : ideas.filter((i) => i.visibility === 'function' && i.shared_function_id === activeFunctionId)
+      : view === 'everyone'
+        ? ideas.filter((i) => i.visibility === 'everyone')
+        : ideas.filter((i) => i.visibility === 'function' && i.shared_function_id === view)
+
+  const activeLabel =
+    view === 'self' ? 'private, only you' : view === 'everyone' ? 'visible to the whole HR team' : `shared with ${functions.find((f) => f.id === view)?.name ?? ''}`
 
   return (
     <div>
@@ -61,65 +64,56 @@ export default function Brainstorm() {
       />
       <div className="px-8 pt-6 pb-3 flex items-center gap-[14px] flex-wrap">
         <div className="text-[26px] font-bold -tracking-[0.03em]">💡 Brainstorm</div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button
-            onClick={() => setView('mine')}
+            onClick={() => setView('self')}
             className={`text-[12.5px] font-semibold border-2 border-ink rounded-chip px-3 py-[5px] ${
-              view === 'mine' ? 'bg-ink text-bg' : 'bg-white'
+              view === 'self' ? 'bg-ink text-bg' : 'bg-white'
             }`}
           >
-            My wall
+            Self
           </button>
+          {viewableFunctions.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setView(f.id)}
+              className={`text-[12.5px] font-semibold border-2 border-ink rounded-chip px-3 py-[5px] ${
+                view === f.id ? 'bg-ink text-bg' : 'bg-white'
+              }`}
+            >
+              {f.name}
+            </button>
+          ))}
           <button
-            onClick={() => setView('team')}
+            onClick={() => setView('everyone')}
             className={`text-[12.5px] font-semibold border-2 border-ink rounded-chip px-3 py-[5px] ${
-              view === 'team' ? 'bg-ink text-bg' : 'bg-white'
+              view === 'everyone' ? 'bg-ink text-bg' : 'bg-white'
             }`}
           >
-            Team
+            HR team
           </button>
         </div>
-        {view === 'team' && viewableFunctions.length > 1 && (
-          <div className="flex gap-2 ml-2 flex-wrap">
-            {viewableFunctions.map((f) => (
-              <span
-                key={f.id}
-                onClick={() => setTeamFunctionId(f.id)}
-                className={`text-[12px] font-semibold border-2 border-ink rounded-pill px-3 py-[4px] cursor-pointer ${
-                  activeFunctionId === f.id ? 'bg-ink text-bg' : 'bg-white'
-                }`}
-              >
-                {f.name}
-              </span>
-            ))}
-          </div>
-        )}
-        <div className="text-sm font-medium text-muted ml-2">
-          {view === 'mine'
-            ? 'private by default'
-            : activeFunctionId
-              ? `shared to ${functions.find((f) => f.id === activeFunctionId)?.name ?? '…'}`
-              : ''}
-        </div>
+        <div className="text-sm font-medium text-muted ml-2">{activeLabel}</div>
       </div>
 
-      {view === 'team' && viewableFunctions.length === 0 ? (
-        <div className="mx-8 mt-3 mb-8 h-[200px] bg-white border-2 border-dashed border-faded rounded-card flex items-center justify-center text-sm text-muted font-medium">
-          You're not part of a function yet — ask your admin to add you to one under Admin → Members.
-        </div>
-      ) : (
-        <StickyBoard
-          ideas={visibleIdeas}
-          peopleById={peopleById}
-          currentUserId={currentUser.id}
-          onMove={(id, x, y) => move.mutate({ id, x, y })}
-          onCreateAt={(x, y) => setComposerAt({ x, y })}
-          onDelete={(id) => remove.mutate(id)}
-        />
-      )}
+      <StickyBoard
+        ideas={visibleIdeas}
+        peopleById={peopleById}
+        functionsById={functionsById}
+        currentUserId={currentUser.id}
+        onMove={(id, x, y) => move.mutate({ id, x, y })}
+        onCreateAt={(x, y) => setComposerAt({ x, y })}
+        onDelete={(id) => remove.mutate(id)}
+      />
 
       {composerAt && (
-        <IdeaComposer x={composerAt.x} y={composerAt.y} myFunctions={viewableFunctions} onClose={() => setComposerAt(null)} />
+        <IdeaComposer
+          x={composerAt.x}
+          y={composerAt.y}
+          myFunctions={viewableFunctions}
+          defaultVisibility={view === 'self' ? '' : view === 'everyone' ? 'everyone' : view}
+          onClose={() => setComposerAt(null)}
+        />
       )}
     </div>
   )
