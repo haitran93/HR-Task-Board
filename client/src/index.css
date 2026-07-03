@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  background: #efe7d8;
+  font-family: 'Space Grotesk', sans-serif;
+  color: #141414;
+}
+
+.hard-btn {
+  transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+}
+.hard-btn:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 #141414 !important;
+}
+
+.hard-btn-red:hover {
+  box-shadow: 1px 1px 0 #E4572E !important;
+}
