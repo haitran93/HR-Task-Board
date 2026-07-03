@@ -116,7 +116,7 @@ export default function CalendarPage() {
               {selectedEvent.title}
             </div>
             <div className="text-sm text-muted font-medium">
-              {projectsById[selectedEvent.project_id]?.name} ·{' '}
+              {projectsById[selectedEvent.project_id]?.name ?? 'No project'} ·{' '}
               {format(new Date(`${selectedEvent.date}T00:00:00`), 'EEEE, MMM d')}
             </div>
             <div className="text-sm font-medium">

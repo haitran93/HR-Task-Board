@@ -69,14 +69,15 @@ export default function MonthGrid({ month, events, projectsById, onEventClick })
                 {dayEvents.map((e) => {
                   const project = projectsById[e.project_id]
                   const overdue = !e.isMilestone && parseISO(e.date) < new Date(new Date().toDateString())
-                  const lightBg = project && isLightColor(project.color)
+                  const chipColor = project?.color ?? '#6F6A60'
+                  const lightBg = isLightColor(chipColor)
                   return (
                     <div
                       key={e.id}
                       onClick={() => onEventClick?.(e)}
                       className="rounded-[7px] text-[11.5px] font-semibold px-[7px] py-[2px] cursor-pointer truncate"
                       style={{
-                        background: overdue ? '#FFE9E0' : project?.color,
+                        background: overdue ? '#FFE9E0' : chipColor,
                         color: overdue ? '#E4572E' : lightBg ? '#141414' : '#fff',
                         border: `1.5px solid ${overdue ? '#E4572E' : '#141414'}`,
                         fontWeight: e.isMilestone ? 700 : 600,

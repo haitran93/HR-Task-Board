@@ -14,7 +14,7 @@ export default function TaskModal({ projects, people, defaultAssigneeId, allowGr
   const queryClient = useQueryClient()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [projectId, setProjectId] = useState(projects[0]?.id ?? '')
+  const [projectId, setProjectId] = useState('')
   const [dueDate, setDueDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [priority, setPriority] = useState('med')
   const [reminderEnabled, setReminderEnabled] = useState(true)

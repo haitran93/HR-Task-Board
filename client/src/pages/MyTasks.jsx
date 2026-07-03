@@ -53,7 +53,7 @@ export default function MyTasks() {
 
   return (
     <div>
-      <TopBar onAddTask={currentUser.isAdmin ? () => setShowModal(true) : undefined} />
+      <TopBar onAddTask={() => setShowModal(true)} />
       <div className="grid grid-cols-[1fr_360px] gap-7 px-8 pt-7 pb-9">
         <div className="flex flex-col gap-5">
           <div className="flex items-baseline gap-[14px]">

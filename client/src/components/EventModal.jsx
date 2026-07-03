@@ -6,7 +6,7 @@ export default function EventModal({ projects, people, event, onClose }) {
   const queryClient = useQueryClient()
   const isEdit = !!event
   const [title, setTitle] = useState(event?.title ?? '')
-  const [projectId, setProjectId] = useState(event?.project_id ?? projects[0]?.id ?? '')
+  const [projectId, setProjectId] = useState(event?.project_id ?? '')
   const [date, setDate] = useState(event?.date ?? '')
   const [isMilestone, setIsMilestone] = useState(event?.isMilestone ?? false)
   const [ownerIds, setOwnerIds] = useState(event?.ownerIds ?? [])
@@ -19,8 +19,8 @@ export default function EventModal({ projects, people, event, onClose }) {
   const save = useMutation({
     mutationFn: () =>
       isEdit
-        ? api.updateEvent(event.id, { title, projectId, date, isMilestone, ownerIds })
-        : api.createEvent({ title, projectId, date, isMilestone, ownerIds }),
+        ? api.updateEvent(event.id, { title, projectId: projectId || null, date, isMilestone, ownerIds })
+        : api.createEvent({ title, projectId: projectId || null, date, isMilestone, ownerIds }),
     onSuccess: invalidate,
   })
 
@@ -33,7 +33,7 @@ export default function EventModal({ projects, people, event, onClose }) {
     setOwnerIds((cur) => (cur.includes(id) ? cur.filter((o) => o !== id) : [...cur, id]))
   }
 
-  const canSubmit = title && projectId && date
+  const canSubmit = title && date
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
@@ -62,6 +62,7 @@ export default function EventModal({ projects, people, event, onClose }) {
               onChange={(e) => setProjectId(e.target.value)}
               className="border-2 border-ink rounded-btn px-2 py-2 font-medium text-sm"
             >
+              <option value="">None</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
