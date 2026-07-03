@@ -63,7 +63,7 @@ export default function MyTasks() {
             </div>
           </div>
 
-          <WeekStrip openTasks={allOpen} doneTasks={allDone} projectsById={projectsById} />
+          <WeekStrip openTasks={allOpen} doneTasks={allDone} />
 
           <FilterPills projects={projects} selected={filterProject} onSelect={setFilterProject} />
 
