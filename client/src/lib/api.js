@@ -120,10 +120,11 @@ export const api = {
 
   // Fan-out create: one task row per person, sharing a batch_id so the admin can audit them as one unit.
   // Used for both single-assignee ("+ Task") and group-assignment ("+ Assign task") flows.
-  async createTaskBatch({ title, projectId, assigneeIds, dueDate, priority = 'med', reminderEnabled = true, reminderOffsetDays = 3 }) {
+  async createTaskBatch({ title, description, projectId, assigneeIds, dueDate, priority = 'med', reminderEnabled = true, reminderOffsetDays = 3 }) {
     const batchId = crypto.randomUUID()
     const rows = assigneeIds.map((assigneeId) => ({
       title,
+      description: description || null,
       project_id: projectId ?? null,
       assignee_id: assigneeId,
       due_date: dueDate,
@@ -139,6 +140,7 @@ export const api = {
   async updateTask(id, data) {
     const patch = {}
     if (data.title !== undefined) patch.title = data.title
+    if (data.description !== undefined) patch.description = data.description
     if (data.projectId !== undefined) patch.project_id = data.projectId
     if (data.assigneeId !== undefined) patch.assignee_id = data.assigneeId
     if (data.dueDate !== undefined) patch.due_date = data.dueDate
@@ -172,6 +174,36 @@ export const api = {
 
   async deleteTasksBulk(ids) {
     unwrap(await supabase.from('tasks').delete().in('id', ids))
+  },
+
+  // ---- task attachments ----
+  // Bucket is private (unlike brainstorm-images), so files are served via
+  // short-lived signed URLs rather than public links.
+  async getTaskAttachments(taskId) {
+    return unwrap(await supabase.from('task_attachments').select('*').eq('task_id', taskId).order('created_at'))
+  },
+
+  async uploadTaskAttachment(taskId, file, uploadedBy) {
+    const path = `${taskId}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+    unwrap(await supabase.storage.from('task-attachments').upload(path, file))
+    return unwrap(
+      await supabase
+        .from('task_attachments')
+        .insert({ task_id: taskId, file_path: path, file_name: file.name, file_type: file.type, uploaded_by: uploadedBy })
+        .select()
+        .single()
+    )
+  },
+
+  async getAttachmentUrl(filePath) {
+    const { data, error } = await supabase.storage.from('task-attachments').createSignedUrl(filePath, 3600)
+    if (error) throw error
+    return data.signedUrl
+  },
+
+  async deleteTaskAttachment(id, filePath) {
+    await supabase.storage.from('task-attachments').remove([filePath])
+    unwrap(await supabase.from('task_attachments').delete().eq('id', id))
   },
 
   // ---- events ----

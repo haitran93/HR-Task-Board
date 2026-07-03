@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { format, parseISO, isToday } from 'date-fns'
+import TaskDetailModal from './TaskDetailModal'
 
 function metaLabel(task, project) {
   const d = parseISO(task.due_date)
@@ -7,6 +9,8 @@ function metaLabel(task, project) {
 }
 
 export default function MiniTaskCard({ task, project, onDragStart }) {
+  const [detailOpen, setDetailOpen] = useState(false)
+
   return (
     <div
       draggable
@@ -21,13 +25,16 @@ export default function MiniTaskCard({ task, project, onDragStart }) {
           : 'border-2 border-ink bg-white shadow-btn',
       ].join(' ')}
     >
-      <div className="font-semibold text-[13.5px]">{task.title}</div>
+      <button onClick={() => setDetailOpen(true)} className="font-semibold text-[13.5px] text-left hover:underline">
+        {task.title}
+      </button>
       <div
         className={`text-[11.5px] font-semibold ${task.overdue ? 'text-program-retreat font-bold' : ''}`}
         style={!task.overdue ? { color: project?.color } : undefined}
       >
         {metaLabel(task, project)}
       </div>
+      {detailOpen && <TaskDetailModal task={task} project={project} onClose={() => setDetailOpen(false)} />}
     </div>
   )
 }

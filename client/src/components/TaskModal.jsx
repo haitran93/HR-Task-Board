@@ -13,6 +13,7 @@ const ASSIGN_MODES = [
 export default function TaskModal({ projects, people, defaultAssigneeId, allowGroupAssign = false, onClose }) {
   const queryClient = useQueryClient()
   const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
   const [projectId, setProjectId] = useState(projects[0]?.id ?? '')
   const [dueDate, setDueDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [priority, setPriority] = useState('med')
@@ -46,7 +47,15 @@ export default function TaskModal({ projects, people, defaultAssigneeId, allowGr
 
   const create = useMutation({
     mutationFn: () =>
-      api.createTaskBatch({ title, projectId: projectId || null, assigneeIds: targetIds, dueDate, priority, reminderEnabled }),
+      api.createTaskBatch({
+        title,
+        description,
+        projectId: projectId || null,
+        assigneeIds: targetIds,
+        dueDate,
+        priority,
+        reminderEnabled,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       onClose()
@@ -71,6 +80,17 @@ export default function TaskModal({ projects, people, defaultAssigneeId, allowGr
             onChange={(e) => setTitle(e.target.value)}
             className="border-2 border-ink rounded-btn px-3 py-2 font-medium text-sm"
             placeholder="What needs doing?"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm font-semibold">
+          Description (optional)
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Add details or instructions…"
+            rows={3}
+            className="border-2 border-ink rounded-btn px-3 py-2 font-medium text-sm resize-none"
           />
         </label>
 

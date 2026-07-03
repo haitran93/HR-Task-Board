@@ -7,6 +7,7 @@ import { useCurrentUser } from '../lib/currentUser'
 import PersonColumn from '../components/PersonColumn'
 import MiniTaskCard from '../components/MiniTaskCard'
 import TaskModal from '../components/TaskModal'
+import TaskDetailModal from '../components/TaskDetailModal'
 
 const TABS = ['By person', 'By project', 'Tasks', 'Projects', 'Members', 'Reminder rules']
 
@@ -577,6 +578,7 @@ function TasksAdmin({ tasks, people, projects, projectsById }) {
   const [editProjectId, setEditProjectId] = useState('')
   const [editDueDate, setEditDueDate] = useState('')
   const [editPriority, setEditPriority] = useState('med')
+  const [detailTask, setDetailTask] = useState(null)
 
   const peopleById = useMemo(() => Object.fromEntries(people.map((p) => [p.id, p])), [people])
 
@@ -741,6 +743,12 @@ function TasksAdmin({ tasks, people, projects, projectsById }) {
                       >
                         {t.status === 'done' ? 'done' : t.overdue ? 'overdue' : 'open'}
                       </span>
+                      <button
+                        onClick={() => setDetailTask(t)}
+                        className="text-xs font-semibold border-2 border-ink rounded-btn px-2 py-[2px] bg-white"
+                      >
+                        details
+                      </button>
                       {group.rows.length > 1 && (
                         <button
                           onClick={() => confirmRevoke(t)}
@@ -757,6 +765,9 @@ function TasksAdmin({ tasks, people, projects, projectsById }) {
           </div>
         )
       })}
+      {detailTask && (
+        <TaskDetailModal task={detailTask} project={projectsById[detailTask.project_id]} onClose={() => setDetailTask(null)} />
+      )}
     </div>
   )
 }

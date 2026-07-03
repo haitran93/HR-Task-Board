@@ -4,6 +4,7 @@ import { format, parseISO, isToday } from 'date-fns'
 import { api } from '../lib/api'
 import { useCurrentUser } from '../lib/currentUser'
 import CompletionChannelPicker from './CompletionChannelPicker'
+import TaskDetailModal from './TaskDetailModal'
 
 const PRIORITY_STYLE = {
   high: 'bg-program-retreat text-white border-ink',
@@ -23,6 +24,7 @@ export default function TaskCard({ task, project, onSnooze }) {
   const queryClient = useQueryClient()
   const [pickerOpen, setPickerOpen] = useState(false)
   const [anchorRect, setAnchorRect] = useState(null)
+  const [detailOpen, setDetailOpen] = useState(false)
   const checkboxRef = useRef(null)
 
   const reopen = useMutation({
@@ -93,7 +95,9 @@ export default function TaskCard({ task, project, onSnooze }) {
           )}
         </div>
         <div className="flex-1">
-          <div className="font-bold text-base">{task.title}</div>
+          <button onClick={() => setDetailOpen(true)} className="font-bold text-base text-left hover:underline">
+            {task.title}
+          </button>
           <div className={`text-[13px] font-medium mt-[3px] ${overdue ? 'font-bold text-program-retreat' : 'text-muted'}`}>
             {project?.name} · {formatDue(task.due_date, overdue)}
             {task.note ? ` · ${task.note}` : ''}
@@ -113,6 +117,7 @@ export default function TaskCard({ task, project, onSnooze }) {
           </span>
         )}
       </div>
+      {detailOpen && <TaskDetailModal task={task} project={project} onClose={() => setDetailOpen(false)} />}
     </div>
   )
 }
