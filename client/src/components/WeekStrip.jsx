@@ -42,11 +42,22 @@ export default function WeekStrip({ openTasks, doneTasks }) {
                   className="border-2 border-ink rounded-chip h-7 bg-white flex items-stretch overflow-hidden"
                   style={today ? { boxShadow: '3px 3px 0 #E4572E' } : undefined}
                 >
-                  <div className="flex-1 flex items-center justify-center text-xs font-bold" style={{ color: '#EAB308' }}>
-                    {upcomingCount || ''}
+                  <div className="flex-1 flex items-center justify-center">
+                    {upcomingCount > 0 && (
+                      <span
+                        className="w-4 h-4 rounded-full text-white text-[9px] font-bold flex items-center justify-center"
+                        style={{ background: '#EAB308' }}
+                      >
+                        {upcomingCount}
+                      </span>
+                    )}
                   </div>
-                  <div className="flex-1 flex items-center justify-center text-xs font-bold text-program-retreat">
-                    {overdueCount || ''}
+                  <div className="flex-1 flex items-center justify-center">
+                    {overdueCount > 0 && (
+                      <span className="w-4 h-4 rounded-full bg-program-retreat text-white text-[9px] font-bold flex items-center justify-center">
+                        {overdueCount}
+                      </span>
+                    )}
                   </div>
                   <div className="flex-1 flex items-center justify-center">
                     {doneCount > 0 && (

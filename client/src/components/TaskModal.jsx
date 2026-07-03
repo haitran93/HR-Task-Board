@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { format } from 'date-fns'
+import { addBusinessDays, format } from 'date-fns'
 import { api } from '../lib/api'
 
 const ASSIGN_MODES = [
@@ -15,7 +15,8 @@ export default function TaskModal({ projects, people, defaultAssigneeId, allowGr
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [projectId, setProjectId] = useState('')
-  const [dueDate, setDueDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  // Default due date: 3 working days out — same-day assignment is the exception, not the norm.
+  const [dueDate, setDueDate] = useState(format(addBusinessDays(new Date(), 3), 'yyyy-MM-dd'))
   const [priority, setPriority] = useState('med')
   const [reminderEnabled, setReminderEnabled] = useState(true)
 
@@ -67,7 +68,7 @@ export default function TaskModal({ projects, people, defaultAssigneeId, allowGr
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
       <div
-        className="bg-white border-2 border-ink rounded-card shadow-card w-[460px] p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
+        className="bg-white border-2 border-ink rounded-card shadow-card w-[460px] p-5 flex flex-col gap-3 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="text-xl font-bold -tracking-[0.02em]">{allowGroupAssign ? '+ Assign task' : '+ Task'}</div>
@@ -89,7 +90,7 @@ export default function TaskModal({ projects, people, defaultAssigneeId, allowGr
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Add details or instructions…"
-            rows={3}
+            rows={2}
             className="border-2 border-ink rounded-btn px-3 py-2 font-medium text-sm resize-none"
           />
         </label>
@@ -133,6 +134,23 @@ export default function TaskModal({ projects, people, defaultAssigneeId, allowGr
               <option value="high">High</option>
             </select>
           </label>
+
+          {!allowGroupAssign && allowMemberPick && (
+            <label className="flex flex-col gap-1 text-sm font-semibold">
+              Assign to
+              <select
+                value={assigneeId}
+                onChange={(e) => setAssigneeId(e.target.value)}
+                className="border-2 border-ink rounded-btn px-2 py-2 font-medium text-sm"
+              >
+                {people.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.id === defaultAssigneeId ? `${p.name} (me)` : p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
 
         {allowGroupAssign && (
@@ -195,29 +213,12 @@ export default function TaskModal({ projects, people, defaultAssigneeId, allowGr
           </div>
         )}
 
-        {!allowGroupAssign && allowMemberPick && (
-          <label className="flex flex-col gap-1 text-sm font-semibold">
-            Assign to
-            <select
-              value={assigneeId}
-              onChange={(e) => setAssigneeId(e.target.value)}
-              className="border-2 border-ink rounded-btn px-2 py-2 font-medium text-sm"
-            >
-              {people.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.id === defaultAssigneeId ? `${p.name} (me)` : p.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-
         <label className="flex items-center gap-2 text-sm font-semibold">
           <input type="checkbox" checked={reminderEnabled} onChange={(e) => setReminderEnabled(e.target.checked)} />
           Reminder enabled
         </label>
 
-        <div className="flex gap-2 justify-end mt-2">
+        <div className="flex gap-2 justify-end mt-1">
           <button onClick={onClose} className="px-4 py-2 border-2 border-ink rounded-btn font-semibold text-sm bg-white">
             Cancel
           </button>
