@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import { addMonths, subMonths, format } from 'date-fns'
 import { api } from '../lib/api'
 import { useCurrentUser } from '../lib/currentUser'
-import { icsFeedUrl } from '../lib/supabase'
 import TopBar from '../components/TopBar'
 import MonthGrid from '../components/MonthGrid'
 import EventModal from '../components/EventModal'
@@ -60,12 +59,6 @@ export default function CalendarPage() {
                 + Event
               </button>
             )}
-            <a
-              href={icsFeedUrl()}
-              className="hard-btn px-[18px] py-2 bg-accent border-2 border-ink rounded-btn font-bold text-sm shadow-btn"
-            >
-              Subscribe ↗
-            </a>
           </div>
         }
       />

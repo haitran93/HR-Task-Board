@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { api } from '../lib/api'
 import { useCurrentUser } from '../lib/currentUser'
-import { icsFeedUrl } from '../lib/supabase'
 import TopBar from '../components/TopBar'
 import WeekStrip from '../components/WeekStrip'
 import FilterPills from '../components/FilterPills'
@@ -139,12 +138,6 @@ export default function MyTasks() {
               Open wall →
             </div>
           </a>
-          <div className="border-2 border-dashed border-ink rounded-card px-5 py-4 text-[13px] font-medium text-muted">
-            📅 Subscribe in Outlook — all program dates sync automatically.{' '}
-            <a href={icsFeedUrl()} className="font-bold text-ink border-b-2 border-ink">
-              Get link
-            </a>
-          </div>
         </div>
       </div>
       {showModal && (
