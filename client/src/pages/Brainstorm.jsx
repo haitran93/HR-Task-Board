@@ -24,7 +24,10 @@ export default function Brainstorm() {
     [personFunctions, currentUser]
   )
   const myFunctions = functions.filter((f) => myFunctionIds.includes(f.id))
-  const activeFunctionId = teamFunctionId ?? myFunctions[0]?.id ?? null
+  // Admins can browse (and post to) any function's wall, not just their own —
+  // they already see every function-shared idea via RLS, this just exposes it in the UI.
+  const viewableFunctions = currentUser?.isAdmin ? functions : myFunctions
+  const activeFunctionId = teamFunctionId ?? viewableFunctions[0]?.id ?? null
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['ideas'] })
 
@@ -67,20 +70,18 @@ export default function Brainstorm() {
           >
             My wall
           </button>
-          {myFunctions.length > 0 && (
-            <button
-              onClick={() => setView('team')}
-              className={`text-[12.5px] font-semibold border-2 border-ink rounded-chip px-3 py-[5px] ${
-                view === 'team' ? 'bg-ink text-bg' : 'bg-white'
-              }`}
-            >
-              Team
-            </button>
-          )}
+          <button
+            onClick={() => setView('team')}
+            className={`text-[12.5px] font-semibold border-2 border-ink rounded-chip px-3 py-[5px] ${
+              view === 'team' ? 'bg-ink text-bg' : 'bg-white'
+            }`}
+          >
+            Team
+          </button>
         </div>
-        {view === 'team' && myFunctions.length > 1 && (
-          <div className="flex gap-2 ml-2">
-            {myFunctions.map((f) => (
+        {view === 'team' && viewableFunctions.length > 1 && (
+          <div className="flex gap-2 ml-2 flex-wrap">
+            {viewableFunctions.map((f) => (
               <span
                 key={f.id}
                 onClick={() => setTeamFunctionId(f.id)}
@@ -94,21 +95,31 @@ export default function Brainstorm() {
           </div>
         )}
         <div className="text-sm font-medium text-muted ml-2">
-          {view === 'mine' ? 'private by default' : `shared to ${functions.find((f) => f.id === activeFunctionId)?.name ?? '…'}`}
+          {view === 'mine'
+            ? 'private by default'
+            : activeFunctionId
+              ? `shared to ${functions.find((f) => f.id === activeFunctionId)?.name ?? '…'}`
+              : ''}
         </div>
       </div>
 
-      <StickyBoard
-        ideas={visibleIdeas}
-        peopleById={peopleById}
-        currentUserId={currentUser.id}
-        onMove={(id, x, y) => move.mutate({ id, x, y })}
-        onCreateAt={(x, y) => setComposerAt({ x, y })}
-        onDelete={(id) => remove.mutate(id)}
-      />
+      {view === 'team' && viewableFunctions.length === 0 ? (
+        <div className="mx-8 mt-3 mb-8 h-[200px] bg-white border-2 border-dashed border-faded rounded-card flex items-center justify-center text-sm text-muted font-medium">
+          You're not part of a function yet — ask your admin to add you to one under Admin → Members.
+        </div>
+      ) : (
+        <StickyBoard
+          ideas={visibleIdeas}
+          peopleById={peopleById}
+          currentUserId={currentUser.id}
+          onMove={(id, x, y) => move.mutate({ id, x, y })}
+          onCreateAt={(x, y) => setComposerAt({ x, y })}
+          onDelete={(id) => remove.mutate(id)}
+        />
+      )}
 
       {composerAt && (
-        <IdeaComposer x={composerAt.x} y={composerAt.y} myFunctions={myFunctions} onClose={() => setComposerAt(null)} />
+        <IdeaComposer x={composerAt.x} y={composerAt.y} myFunctions={viewableFunctions} onClose={() => setComposerAt(null)} />
       )}
     </div>
   )
