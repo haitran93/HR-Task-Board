@@ -10,7 +10,7 @@ const ASSIGN_MODES = [
   { id: 'everyone', label: 'Everyone' },
 ]
 
-export default function TaskModal({ projects, people, defaultAssigneeId, allowGroupAssign = false, onClose }) {
+export default function TaskModal({ projects, people, defaultAssigneeId, allowGroupAssign = false, allowMemberPick = false, onClose }) {
   const queryClient = useQueryClient()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -193,6 +193,23 @@ export default function TaskModal({ projects, people, defaultAssigneeId, allowGr
                 : 'No one targeted yet.'}
             </div>
           </div>
+        )}
+
+        {!allowGroupAssign && allowMemberPick && (
+          <label className="flex flex-col gap-1 text-sm font-semibold">
+            Assign to
+            <select
+              value={assigneeId}
+              onChange={(e) => setAssigneeId(e.target.value)}
+              className="border-2 border-ink rounded-btn px-2 py-2 font-medium text-sm"
+            >
+              {people.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.id === defaultAssigneeId ? `${p.name} (me)` : p.name}
+                </option>
+              ))}
+            </select>
+          </label>
         )}
 
         <label className="flex items-center gap-2 text-sm font-semibold">

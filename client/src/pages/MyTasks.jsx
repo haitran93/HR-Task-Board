@@ -141,7 +141,13 @@ export default function MyTasks() {
         </div>
       </div>
       {showModal && (
-        <TaskModal projects={projects} people={people} defaultAssigneeId={currentUser.id} onClose={() => setShowModal(false)} />
+        <TaskModal
+          projects={projects}
+          people={people}
+          defaultAssigneeId={currentUser.id}
+          allowMemberPick
+          onClose={() => setShowModal(false)}
+        />
       )}
     </div>
   )
