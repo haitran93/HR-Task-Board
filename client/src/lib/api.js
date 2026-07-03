@@ -5,6 +5,11 @@ function unwrap({ data, error }) {
   return data
 }
 
+function unwrapCount({ count, error }) {
+  if (error) throw error
+  return count ?? 0
+}
+
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
@@ -32,6 +37,35 @@ export const api = {
     return unwrap(await supabase.from('person_functions').select('*'))
   },
 
+  async updatePerson(id, { name, avatarColor, isAdmin }) {
+    const patch = {}
+    if (name !== undefined) patch.name = name
+    if (avatarColor !== undefined) patch.avatar_color = avatarColor
+    if (isAdmin !== undefined) patch.is_admin = isAdmin
+    const row = unwrap(await supabase.from('people').update(patch).eq('id', id).select().single())
+    return { ...row, isAdmin: row.is_admin }
+  },
+
+  async setPersonFunctions(personId, functionIds) {
+    unwrap(await supabase.from('person_functions').delete().eq('person_id', personId))
+    if (functionIds.length) {
+      unwrap(
+        await supabase.from('person_functions').insert(functionIds.map((functionId) => ({ person_id: personId, function_id: functionId })))
+      )
+    }
+  },
+
+  // Counts of what cascade-deletes if this person is removed (their tasks + their brainstorm ideas).
+  async getPersonImpact(id) {
+    const taskRes = await supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('assignee_id', id)
+    const ideaRes = await supabase.from('ideas').select('*', { count: 'exact', head: true }).eq('author_id', id)
+    return { taskCount: unwrapCount(taskRes), ideaCount: unwrapCount(ideaRes) }
+  },
+
+  async deletePerson(id) {
+    unwrap(await supabase.from('people').delete().eq('id', id))
+  },
+
   // ---- projects ----
   async getProjects() {
     return unwrap(await supabase.from('projects').select('*').order('created_at'))
@@ -53,6 +87,25 @@ export const api = {
         await supabase.from('project_teams').insert(personIds.map((personId) => ({ project_id: projectId, person_id: personId })))
       )
     }
+  },
+
+  async updateProject(id, { name, color }) {
+    const patch = {}
+    if (name !== undefined) patch.name = name
+    if (color !== undefined) patch.color = color
+    return unwrap(await supabase.from('projects').update(patch).eq('id', id).select().single())
+  },
+
+  // Counts of what happens if this project is deleted: tasks get unassigned from
+  // it (project_id -> null, not deleted), but events cascade-delete with it.
+  async getProjectImpact(id) {
+    const taskRes = await supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('project_id', id)
+    const eventRes = await supabase.from('events').select('*', { count: 'exact', head: true }).eq('project_id', id)
+    return { taskCount: unwrapCount(taskRes), eventCount: unwrapCount(eventRes) }
+  },
+
+  async deleteProject(id) {
+    unwrap(await supabase.from('projects').delete().eq('id', id))
   },
 
   // ---- tasks ----

@@ -7,7 +7,7 @@ import PersonColumn from '../components/PersonColumn'
 import MiniTaskCard from '../components/MiniTaskCard'
 import TaskModal from '../components/TaskModal'
 
-const TABS = ['By person', 'By project', 'Projects', 'Reminder rules']
+const TABS = ['By person', 'By project', 'Projects', 'Members', 'Reminder rules']
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
@@ -15,6 +15,7 @@ function todayStr() {
 
 export default function AdminBoard() {
   const navigate = useNavigate()
+  const { currentUser } = useCurrentUser()
   const queryClient = useQueryClient()
   const [tab, setTab] = useState('By person')
   const [selectedPersonId, setSelectedPersonId] = useState(null)
@@ -164,6 +165,8 @@ export default function AdminBoard() {
 
       {tab === 'Projects' && <ProjectsAdmin projects={projects} people={people} />}
 
+      {tab === 'Members' && <MembersAdmin people={people} currentUserId={currentUser.id} />}
+
       {tab === 'Reminder rules' && (
         <div className="px-8 pt-6 pb-9 max-w-2xl">
           <div className="bg-white border-2 border-ink rounded-card overflow-hidden">
@@ -222,6 +225,9 @@ function ProjectsAdmin({ projects, people }) {
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState('#2E5FE4')
   const [openProjectId, setOpenProjectId] = useState(null)
+  const [editingId, setEditingId] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [editColor, setEditColor] = useState('#000000')
 
   const { data: team = [] } = useQuery({
     queryKey: ['projectTeam', openProjectId],
@@ -242,9 +248,44 @@ function ProjectsAdmin({ projects, people }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projectTeam', openProjectId] }),
   })
 
+  const saveEdit = useMutation({
+    mutationFn: ({ id, name, color }) => api.updateProject(id, { name, color }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      setEditingId(null)
+    },
+  })
+
+  const removeProject = useMutation({
+    mutationFn: (id) => api.deleteProject(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['reminderRules'] })
+    },
+  })
+
   function toggleMember(personId) {
     const next = team.includes(personId) ? team.filter((id) => id !== personId) : [...team, personId]
     saveTeam.mutate(next)
+  }
+
+  function startEdit(project) {
+    setEditingId(project.id)
+    setEditName(project.name)
+    setEditColor(project.color)
+  }
+
+  async function confirmDelete(project) {
+    const impact = await api.getProjectImpact(project.id)
+    const parts = []
+    if (impact.taskCount) parts.push(`${impact.taskCount} task(s) will be unassigned from it (kept, just untagged)`)
+    if (impact.eventCount) parts.push(`${impact.eventCount} calendar event(s) will be permanently deleted`)
+    const message = parts.length
+      ? `Delete "${project.name}"?\n\n${parts.join('\n')}`
+      : `Delete "${project.name}"? Nothing else references it.`
+    if (window.confirm(message)) removeProject.mutate(project.id)
   }
 
   return (
@@ -283,17 +324,70 @@ function ProjectsAdmin({ projects, people }) {
       <div className="flex flex-col gap-3">
         {projects.map((project) => {
           const isOpen = openProjectId === project.id
+          const isEditing = editingId === project.id
           return (
             <div key={project.id} className="bg-white border-2 border-ink rounded-card p-4">
-              <div
-                className="flex items-center gap-[10px] cursor-pointer"
-                onClick={() => setOpenProjectId(isOpen ? null : project.id)}
-              >
-                <span className="w-4 h-4 border-2 border-ink rounded-[5px]" style={{ background: project.color }} />
-                <b className="text-[15px] flex-1">{project.name}</b>
-                <span className="text-xs font-semibold text-muted">{isOpen ? 'hide team ▴' : 'manage team ▾'}</span>
-              </div>
-              {isOpen && (
+              {isEditing ? (
+                <div className="flex gap-3 items-end">
+                  <label className="flex flex-col gap-1 text-sm font-semibold flex-1">
+                    Name
+                    <input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="border-2 border-ink rounded-btn px-3 py-2 font-medium text-sm"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-sm font-semibold">
+                    Color
+                    <input
+                      type="color"
+                      value={editColor}
+                      onChange={(e) => setEditColor(e.target.value)}
+                      className="border-2 border-ink rounded-btn h-[38px] w-[52px] p-1"
+                    />
+                  </label>
+                  <button
+                    disabled={!editName || saveEdit.isPending}
+                    onClick={() => saveEdit.mutate({ id: project.id, name: editName, color: editColor })}
+                    className="hard-btn px-4 py-2 border-2 border-ink rounded-btn font-bold text-sm bg-accent shadow-btn disabled:opacity-50"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="px-4 py-2 border-2 border-ink rounded-btn font-semibold text-sm bg-white"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-[10px]">
+                  <span
+                    onClick={() => setOpenProjectId(isOpen ? null : project.id)}
+                    className="w-4 h-4 border-2 border-ink rounded-[5px] cursor-pointer"
+                    style={{ background: project.color }}
+                  />
+                  <b onClick={() => setOpenProjectId(isOpen ? null : project.id)} className="text-[15px] flex-1 cursor-pointer">
+                    {project.name}
+                  </b>
+                  <span
+                    onClick={() => setOpenProjectId(isOpen ? null : project.id)}
+                    className="text-xs font-semibold text-muted cursor-pointer"
+                  >
+                    {isOpen ? 'hide team ▴' : 'manage team ▾'}
+                  </span>
+                  <button onClick={() => startEdit(project)} className="text-xs font-semibold border-2 border-ink rounded-btn px-2 py-1 bg-white">
+                    edit
+                  </button>
+                  <button
+                    onClick={() => confirmDelete(project)}
+                    className="text-xs font-semibold border-2 border-program-retreat text-program-retreat rounded-btn px-2 py-1 bg-white"
+                  >
+                    delete
+                  </button>
+                </div>
+              )}
+              {isOpen && !isEditing && (
                 <div className="mt-3 pt-3 border-t-2 border-dashed border-faded flex flex-wrap gap-2">
                   {people.map((p) => (
                     <button
@@ -313,6 +407,157 @@ function ProjectsAdmin({ projects, people }) {
           )
         })}
       </div>
+    </div>
+  )
+}
+
+function MembersAdmin({ people, currentUserId }) {
+  const queryClient = useQueryClient()
+  const [openPersonId, setOpenPersonId] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [editColor, setEditColor] = useState('#000000')
+  const [editIsAdmin, setEditIsAdmin] = useState(false)
+
+  const { data: functions = [] } = useQuery({ queryKey: ['functions'], queryFn: api.getFunctions })
+  const { data: personFunctions = [] } = useQuery({ queryKey: ['personFunctions'], queryFn: api.getPersonFunctions })
+
+  const myFunctionIds = (personId) => personFunctions.filter((pf) => pf.person_id === personId).map((pf) => pf.function_id)
+
+  const saveEdit = useMutation({
+    mutationFn: ({ id, name, avatarColor, isAdmin }) => api.updatePerson(id, { name, avatarColor, isAdmin }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['people'] }),
+  })
+
+  const saveFunctions = useMutation({
+    mutationFn: ({ personId, functionIds }) => api.setPersonFunctions(personId, functionIds),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['personFunctions'] }),
+  })
+
+  const removePerson = useMutation({
+    mutationFn: (id) => api.deletePerson(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['people'] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['ideas'] })
+      setOpenPersonId(null)
+    },
+  })
+
+  function open(person) {
+    setOpenPersonId(openPersonId === person.id ? null : person.id)
+    setEditName(person.name)
+    setEditColor(person.avatar_color)
+    setEditIsAdmin(person.isAdmin)
+  }
+
+  function toggleFunction(personId, functionId) {
+    const current = myFunctionIds(personId)
+    const next = current.includes(functionId) ? current.filter((id) => id !== functionId) : [...current, functionId]
+    saveFunctions.mutate({ personId, functionIds: next })
+  }
+
+  async function confirmDelete(person) {
+    const impact = await api.getPersonImpact(person.id)
+    const parts = []
+    if (impact.taskCount) parts.push(`${impact.taskCount} task(s) assigned to them will be permanently deleted`)
+    if (impact.ideaCount) parts.push(`${impact.ideaCount} brainstorm idea(s) they wrote will be permanently deleted`)
+    const message = parts.length
+      ? `Remove ${person.name}?\n\n${parts.join('\n')}\n\nNote: this only removes their app data — their login account isn't deleted, so they could still sign in but wouldn't see anything until re-added.`
+      : `Remove ${person.name}? Nothing else references them.`
+    if (window.confirm(message)) removePerson.mutate(person.id)
+  }
+
+  return (
+    <div className="px-8 pt-6 pb-9 max-w-3xl flex flex-col gap-3">
+      {people.map((person) => {
+        const isOpen = openPersonId === person.id
+        const isSelf = person.id === currentUserId
+        return (
+          <div key={person.id} className="bg-white border-2 border-ink rounded-card p-4">
+            <div className="flex items-center gap-[10px] cursor-pointer" onClick={() => open(person)}>
+              <span
+                className="w-8 h-8 text-white border-2 border-ink rounded-chip flex items-center justify-center font-bold text-sm"
+                style={{ background: person.avatar_color }}
+              >
+                {person.name[0]}
+              </span>
+              <b className="text-[15px] flex-1">
+                {person.name} {person.isAdmin ? <span className="text-xs font-bold text-muted">ADMIN</span> : null}
+              </b>
+              <span className="text-xs font-semibold text-muted">{isOpen ? 'hide ▴' : 'edit ▾'}</span>
+            </div>
+
+            {isOpen && (
+              <div className="mt-3 pt-3 border-t-2 border-dashed border-faded flex flex-col gap-3">
+                <div className="flex gap-3 items-end">
+                  <label className="flex flex-col gap-1 text-sm font-semibold flex-1">
+                    Name
+                    <input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="border-2 border-ink rounded-btn px-3 py-2 font-medium text-sm"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-sm font-semibold">
+                    Avatar color
+                    <input
+                      type="color"
+                      value={editColor}
+                      onChange={(e) => setEditColor(e.target.value)}
+                      className="border-2 border-ink rounded-btn h-[38px] w-[52px] p-1"
+                    />
+                  </label>
+                  <label className="flex items-center gap-2 text-sm font-semibold pb-2">
+                    <input
+                      type="checkbox"
+                      checked={editIsAdmin}
+                      disabled={isSelf}
+                      onChange={(e) => setEditIsAdmin(e.target.checked)}
+                    />
+                    Admin{isSelf ? ' (can’t change your own)' : ''}
+                  </label>
+                  <button
+                    disabled={!editName || saveEdit.isPending}
+                    onClick={() =>
+                      saveEdit.mutate({ id: person.id, name: editName, avatarColor: editColor, isAdmin: editIsAdmin })
+                    }
+                    className="hard-btn px-4 py-2 border-2 border-ink rounded-btn font-bold text-sm bg-accent shadow-btn disabled:opacity-50"
+                  >
+                    Save
+                  </button>
+                </div>
+
+                <div>
+                  <div className="text-xs font-bold tracking-[0.08em] text-muted mb-2">FUNCTIONS</div>
+                  <div className="flex flex-wrap gap-2">
+                    {functions.map((f) => (
+                      <button
+                        key={f.id}
+                        onClick={() => toggleFunction(person.id, f.id)}
+                        className={[
+                          'text-xs font-semibold border-2 border-ink rounded-pill px-3 py-[6px]',
+                          myFunctionIds(person.id).includes(f.id) ? 'bg-ink text-bg' : 'bg-white',
+                        ].join(' ')}
+                      >
+                        {f.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {!isSelf && (
+                  <button
+                    onClick={() => confirmDelete(person)}
+                    className="self-start text-xs font-semibold border-2 border-program-retreat text-program-retreat rounded-btn px-3 py-[6px] bg-white"
+                  >
+                    Remove {person.name}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
