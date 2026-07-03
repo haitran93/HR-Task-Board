@@ -579,19 +579,21 @@ function TasksAdmin({ tasks, people, projects, projectsById }) {
   const [editDueDate, setEditDueDate] = useState('')
   const [editPriority, setEditPriority] = useState('med')
   const [detailTask, setDetailTask] = useState(null)
+  const [statusFilter, setStatusFilter] = useState('open') // 'all' | 'open' | 'done'
 
   const peopleById = useMemo(() => Object.fromEntries(people.map((p) => [p.id, p])), [people])
 
   const groups = useMemo(() => {
+    const filtered = statusFilter === 'all' ? tasks : tasks.filter((t) => t.status === statusFilter)
     const byKey = {}
-    tasks.forEach((t) => {
+    filtered.forEach((t) => {
       const key = t.batch_id || t.id
       ;(byKey[key] = byKey[key] || []).push(t)
     })
     return Object.entries(byKey)
       .map(([key, rows]) => ({ key, rows: rows.slice().sort((a, b) => (peopleById[a.assignee_id]?.name ?? '').localeCompare(peopleById[b.assignee_id]?.name ?? '')) }))
       .sort((a, b) => b.rows[0].due_date.localeCompare(a.rows[0].due_date))
-  }, [tasks, peopleById])
+  }, [tasks, peopleById, statusFilter])
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['tasks'] })
@@ -640,7 +642,21 @@ function TasksAdmin({ tasks, people, projects, projectsById }) {
 
   return (
     <div className="px-8 pt-6 pb-9 max-w-4xl flex flex-col gap-3">
-      {groups.length === 0 && <div className="text-sm text-muted">No tasks yet.</div>}
+      <div className="flex gap-2 mb-1">
+        {['open', 'done', 'all'].map((s) => (
+          <button
+            key={s}
+            onClick={() => setStatusFilter(s)}
+            className={[
+              'text-xs font-bold border-2 border-ink rounded-pill px-3 py-[6px] capitalize',
+              statusFilter === s ? 'bg-ink text-bg' : 'bg-white',
+            ].join(' ')}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+      {groups.length === 0 && <div className="text-sm text-muted">No {statusFilter !== 'all' ? statusFilter : ''} tasks.</div>}
       {groups.map((group) => {
         const first = group.rows[0]
         const isEditing = editingKey === group.key
