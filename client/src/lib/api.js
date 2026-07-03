@@ -154,6 +154,26 @@ export const api = {
     return withDerivedTask(row)
   },
 
+  // Applies shared fields (title/project/due date/priority) across every row in a
+  // batch at once — used by admin task management to edit a group-assigned task.
+  async updateTasksBulk(ids, data) {
+    const patch = {}
+    if (data.title !== undefined) patch.title = data.title
+    if (data.projectId !== undefined) patch.project_id = data.projectId
+    if (data.dueDate !== undefined) patch.due_date = data.dueDate
+    if (data.priority !== undefined) patch.priority = data.priority
+    const rows = unwrap(await supabase.from('tasks').update(patch).in('id', ids).select())
+    return rows.map(withDerivedTask)
+  },
+
+  async deleteTask(id) {
+    unwrap(await supabase.from('tasks').delete().eq('id', id))
+  },
+
+  async deleteTasksBulk(ids) {
+    unwrap(await supabase.from('tasks').delete().in('id', ids))
+  },
+
   // ---- events ----
   async getEvents(month) {
     let query = supabase.from('events').select('*').order('date')
@@ -190,6 +210,31 @@ export const api = {
       unwrap(await supabase.from('event_owners').insert(ownerIds.map((personId) => ({ event_id: event.id, person_id: personId }))))
     }
     return { ...event, isMilestone: event.is_milestone, ownerIds }
+  },
+
+  async updateEvent(id, { title, projectId, date, isMilestone, ownerIds }) {
+    const patch = {}
+    if (title !== undefined) patch.title = title
+    if (projectId !== undefined) patch.project_id = projectId
+    if (date !== undefined) patch.date = date
+    if (isMilestone !== undefined) patch.is_milestone = isMilestone
+    let event
+    if (Object.keys(patch).length) {
+      event = unwrap(await supabase.from('events').update(patch).eq('id', id).select().single())
+    } else {
+      event = unwrap(await supabase.from('events').select('*').eq('id', id).single())
+    }
+    if (ownerIds !== undefined) {
+      unwrap(await supabase.from('event_owners').delete().eq('event_id', id))
+      if (ownerIds.length) {
+        unwrap(await supabase.from('event_owners').insert(ownerIds.map((personId) => ({ event_id: id, person_id: personId }))))
+      }
+    }
+    return { ...event, isMilestone: event.is_milestone, ownerIds: ownerIds ?? [] }
+  },
+
+  async deleteEvent(id) {
+    unwrap(await supabase.from('events').delete().eq('id', id))
   },
 
   // ---- reminder rules ----

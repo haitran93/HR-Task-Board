@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 
 const CHANNELS = [
   { id: 'email', label: 'Email' },
@@ -6,7 +7,7 @@ const CHANNELS = [
   { id: 'other', label: 'Other' },
 ]
 
-export default function CompletionChannelPicker({ onSubmit, onClose }) {
+export default function CompletionChannelPicker({ anchorRect, onSubmit, onClose }) {
   const [channel, setChannel] = useState(null)
   const [note, setNote] = useState('')
 
@@ -18,10 +19,16 @@ export default function CompletionChannelPicker({ onSubmit, onClose }) {
     onSubmit(id, '')
   }
 
-  return (
+  const top = anchorRect ? anchorRect.bottom + 8 : 0
+  const left = anchorRect ? anchorRect.left : 0
+
+  return createPortal(
     <>
-      <div className="fixed inset-0 z-30" onClick={onClose} />
-      <div className="absolute left-0 top-[34px] z-40 bg-white border-2 border-ink rounded-card shadow-card p-3 w-56 flex flex-col gap-2">
+      <div className="fixed inset-0 z-[100]" onClick={onClose} />
+      <div
+        className="fixed z-[101] bg-white border-2 border-ink rounded-card shadow-card p-3 w-56 flex flex-col gap-2"
+        style={{ top, left }}
+      >
         <div className="text-xs font-bold tracking-[0.08em] text-muted px-1">MARKED DONE VIA</div>
         <div className="flex gap-2">
           {CHANNELS.map((c) => (
@@ -57,6 +64,7 @@ export default function CompletionChannelPicker({ onSubmit, onClose }) {
           </div>
         )}
       </div>
-    </>
+    </>,
+    document.body
   )
 }

@@ -6,12 +6,14 @@ import { useCurrentUser } from '../lib/currentUser'
 import { icsFeedUrl } from '../lib/supabase'
 import TopBar from '../components/TopBar'
 import MonthGrid from '../components/MonthGrid'
+import EventModal from '../components/EventModal'
 
 export default function CalendarPage() {
-  const { people } = useCurrentUser()
+  const { people, currentUser } = useCurrentUser()
   const [month, setMonth] = useState(new Date())
   const [projectFilter, setProjectFilter] = useState(null)
   const [selectedEvent, setSelectedEvent] = useState(null)
+  const [eventModalTarget, setEventModalTarget] = useState(null) // null closed | 'new' | event object
 
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.getProjects })
   const monthKey = format(month, 'yyyy-MM')
@@ -23,6 +25,14 @@ export default function CalendarPage() {
   const projectsById = useMemo(() => Object.fromEntries(projects.map((p) => [p.id, p])), [projects])
   const filteredEvents = projectFilter ? events.filter((e) => e.project_id === projectFilter) : events
   const nextDeadline = events.slice().sort((a, b) => a.date.localeCompare(b.date))[0]
+
+  function handleEventClick(event) {
+    if (currentUser.isAdmin) {
+      setEventModalTarget(event)
+    } else {
+      setSelectedEvent(event)
+    }
+  }
 
   return (
     <div>
@@ -42,6 +52,14 @@ export default function CalendarPage() {
             >
               ▶
             </button>
+            {currentUser.isAdmin && (
+              <button
+                onClick={() => setEventModalTarget('new')}
+                className="px-[18px] py-2 border-2 border-ink rounded-btn font-bold text-sm bg-white"
+              >
+                + Event
+              </button>
+            )}
             <a
               href={icsFeedUrl()}
               className="hard-btn px-[18px] py-2 bg-accent border-2 border-ink rounded-btn font-bold text-sm shadow-btn"
@@ -88,7 +106,7 @@ export default function CalendarPage() {
             </div>
           )}
         </div>
-        <MonthGrid month={month} events={filteredEvents} projectsById={projectsById} onEventClick={setSelectedEvent} />
+        <MonthGrid month={month} events={filteredEvents} projectsById={projectsById} onEventClick={handleEventClick} />
       </div>
 
       {selectedEvent && (
@@ -121,6 +139,15 @@ export default function CalendarPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {eventModalTarget && (
+        <EventModal
+          projects={projects}
+          people={people}
+          event={eventModalTarget === 'new' ? null : eventModalTarget}
+          onClose={() => setEventModalTarget(null)}
+        />
       )}
     </div>
   )

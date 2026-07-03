@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { format } from 'date-fns'
 import { api } from '../lib/api'
 import { useCurrentUser } from '../lib/currentUser'
 import PersonColumn from '../components/PersonColumn'
 import MiniTaskCard from '../components/MiniTaskCard'
 import TaskModal from '../components/TaskModal'
 
-const TABS = ['By person', 'By project', 'Projects', 'Members', 'Reminder rules']
+const TABS = ['By person', 'By project', 'Tasks', 'Projects', 'Members', 'Reminder rules']
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
@@ -26,6 +27,11 @@ export default function AdminBoard() {
   const { data: allOpenTasks = [] } = useQuery({
     queryKey: ['tasks', 'admin-open'],
     queryFn: () => api.getTasks({ status: 'open' }),
+  })
+  const { data: allTasks = [] } = useQuery({
+    queryKey: ['tasks', 'admin-all'],
+    queryFn: () => api.getTasks({}),
+    enabled: tab === 'Tasks',
   })
   const { data: reminderRules = [] } = useQuery({ queryKey: ['reminderRules'], queryFn: api.getReminderRules })
 
@@ -162,6 +168,8 @@ export default function AdminBoard() {
           ))}
         </div>
       )}
+
+      {tab === 'Tasks' && <TasksAdmin tasks={allTasks} people={people} projects={projects} projectsById={projectsById} />}
 
       {tab === 'Projects' && <ProjectsAdmin projects={projects} people={people} />}
 
@@ -554,6 +562,197 @@ function MembersAdmin({ people, currentUserId }) {
                   </button>
                 )}
               </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function TasksAdmin({ tasks, people, projects, projectsById }) {
+  const queryClient = useQueryClient()
+  const [editingKey, setEditingKey] = useState(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editProjectId, setEditProjectId] = useState('')
+  const [editDueDate, setEditDueDate] = useState('')
+  const [editPriority, setEditPriority] = useState('med')
+
+  const peopleById = useMemo(() => Object.fromEntries(people.map((p) => [p.id, p])), [people])
+
+  const groups = useMemo(() => {
+    const byKey = {}
+    tasks.forEach((t) => {
+      const key = t.batch_id || t.id
+      ;(byKey[key] = byKey[key] || []).push(t)
+    })
+    return Object.entries(byKey)
+      .map(([key, rows]) => ({ key, rows: rows.slice().sort((a, b) => (peopleById[a.assignee_id]?.name ?? '').localeCompare(peopleById[b.assignee_id]?.name ?? '')) }))
+      .sort((a, b) => b.rows[0].due_date.localeCompare(a.rows[0].due_date))
+  }, [tasks, peopleById])
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    queryClient.invalidateQueries({ queryKey: ['people'] })
+    setEditingKey(null)
+  }
+
+  const saveEdit = useMutation({
+    mutationFn: (ids) =>
+      api.updateTasksBulk(ids, { title: editTitle, projectId: editProjectId || null, dueDate: editDueDate, priority: editPriority }),
+    onSuccess: invalidate,
+  })
+
+  const revokeOne = useMutation({
+    mutationFn: (taskId) => api.deleteTask(taskId),
+    onSuccess: invalidate,
+  })
+
+  const deleteGroup = useMutation({
+    mutationFn: (ids) => api.deleteTasksBulk(ids),
+    onSuccess: invalidate,
+  })
+
+  function startEdit(group) {
+    const first = group.rows[0]
+    setEditingKey(group.key)
+    setEditTitle(first.title)
+    setEditProjectId(first.project_id ?? '')
+    setEditDueDate(first.due_date)
+    setEditPriority(first.priority)
+  }
+
+  function confirmRevoke(task) {
+    const name = peopleById[task.assignee_id]?.name ?? 'this person'
+    if (window.confirm(`Remove "${task.title}" from ${name} only? Everyone else keeps it.`)) revokeOne.mutate(task.id)
+  }
+
+  function confirmDeleteGroup(group) {
+    const count = group.rows.length
+    const message =
+      count > 1
+        ? `Delete "${group.rows[0].title}" for all ${count} people it's assigned to?`
+        : `Delete "${group.rows[0].title}"?`
+    if (window.confirm(message)) deleteGroup.mutate(group.rows.map((r) => r.id))
+  }
+
+  return (
+    <div className="px-8 pt-6 pb-9 max-w-4xl flex flex-col gap-3">
+      {groups.length === 0 && <div className="text-sm text-muted">No tasks yet.</div>}
+      {groups.map((group) => {
+        const first = group.rows[0]
+        const isEditing = editingKey === group.key
+        const project = projectsById[first.project_id]
+        return (
+          <div key={group.key} className="bg-white border-2 border-ink rounded-card p-4">
+            {isEditing ? (
+              <div className="flex flex-wrap gap-3 items-end">
+                <label className="flex flex-col gap-1 text-sm font-semibold flex-1 min-w-[160px]">
+                  Title
+                  <input
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="border-2 border-ink rounded-btn px-3 py-2 font-medium text-sm"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm font-semibold">
+                  Project
+                  <select
+                    value={editProjectId}
+                    onChange={(e) => setEditProjectId(e.target.value)}
+                    className="border-2 border-ink rounded-btn px-2 py-2 font-medium text-sm"
+                  >
+                    <option value="">None</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1 text-sm font-semibold">
+                  Due date
+                  <input
+                    type="date"
+                    value={editDueDate}
+                    onChange={(e) => setEditDueDate(e.target.value)}
+                    className="border-2 border-ink rounded-btn px-2 py-2 font-medium text-sm"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm font-semibold">
+                  Priority
+                  <select
+                    value={editPriority}
+                    onChange={(e) => setEditPriority(e.target.value)}
+                    className="border-2 border-ink rounded-btn px-2 py-2 font-medium text-sm"
+                  >
+                    <option value="low">Low</option>
+                    <option value="med">Med</option>
+                    <option value="high">High</option>
+                  </select>
+                </label>
+                <button
+                  disabled={!editTitle || saveEdit.isPending}
+                  onClick={() => saveEdit.mutate(group.rows.map((r) => r.id))}
+                  className="hard-btn px-4 py-2 border-2 border-ink rounded-btn font-bold text-sm bg-accent shadow-btn disabled:opacity-50"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => setEditingKey(null)}
+                  className="px-4 py-2 border-2 border-ink rounded-btn font-semibold text-sm bg-white"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-[10px]">
+                  <span className="w-4 h-4 border-2 border-ink rounded-[5px] flex-none" style={{ background: project?.color ?? '#ccc' }} />
+                  <b className="text-[15px] flex-1">{first.title}</b>
+                  <span className="text-xs font-semibold text-muted">
+                    {project?.name ?? 'No project'} · {format(new Date(`${first.due_date}T00:00:00`), 'MMM d')} ·{' '}
+                    {group.rows.length} {group.rows.length === 1 ? 'person' : 'people'}
+                  </span>
+                  <button onClick={() => startEdit(group)} className="text-xs font-semibold border-2 border-ink rounded-btn px-2 py-1 bg-white">
+                    edit
+                  </button>
+                  <button
+                    onClick={() => confirmDeleteGroup(group)}
+                    className="text-xs font-semibold border-2 border-program-retreat text-program-retreat rounded-btn px-2 py-1 bg-white"
+                  >
+                    {group.rows.length > 1 ? 'delete for everyone' : 'delete'}
+                  </button>
+                </div>
+                <div className="mt-3 pt-3 border-t-2 border-dashed border-faded flex flex-col gap-2">
+                  {group.rows.map((t) => (
+                    <div key={t.id} className="flex items-center gap-2 text-sm">
+                      <span
+                        className="w-5 h-5 text-white border border-ink rounded flex items-center justify-center font-bold text-[10px] flex-none"
+                        style={{ background: peopleById[t.assignee_id]?.avatar_color }}
+                      >
+                        {peopleById[t.assignee_id]?.name[0]}
+                      </span>
+                      <span className="font-semibold flex-1">{peopleById[t.assignee_id]?.name}</span>
+                      <span
+                        className={`text-xs font-bold ${
+                          t.status === 'done' ? 'text-program-training' : t.overdue ? 'text-program-retreat' : 'text-muted'
+                        }`}
+                      >
+                        {t.status === 'done' ? 'done' : t.overdue ? 'overdue' : 'open'}
+                      </span>
+                      {group.rows.length > 1 && (
+                        <button
+                          onClick={() => confirmRevoke(t)}
+                          className="text-xs font-semibold border-2 border-ink rounded-btn px-2 py-[2px] bg-white"
+                        >
+                          revoke
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )

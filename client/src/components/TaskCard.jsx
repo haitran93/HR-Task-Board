@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, parseISO, isToday } from 'date-fns'
 import { api } from '../lib/api'
@@ -22,6 +22,8 @@ export default function TaskCard({ task, project, onSnooze }) {
   const { currentUser } = useCurrentUser()
   const queryClient = useQueryClient()
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [anchorRect, setAnchorRect] = useState(null)
+  const checkboxRef = useRef(null)
 
   const reopen = useMutation({
     mutationFn: () =>
@@ -58,6 +60,7 @@ export default function TaskCard({ task, project, onSnooze }) {
     if (task.status === 'done') {
       reopen.mutate()
     } else {
+      setAnchorRect(checkboxRef.current.getBoundingClientRect())
       setPickerOpen(true)
     }
   }
@@ -73,6 +76,7 @@ export default function TaskCard({ task, project, onSnooze }) {
       <div className="flex gap-4 items-center px-5 py-4 flex-1">
         <div className="relative">
           <button
+            ref={checkboxRef}
             onClick={handleCheckboxClick}
             className={[
               'w-[26px] h-[26px] rounded-chip flex-none bg-white hover:bg-accent transition-colors',
@@ -82,6 +86,7 @@ export default function TaskCard({ task, project, onSnooze }) {
           />
           {pickerOpen && (
             <CompletionChannelPicker
+              anchorRect={anchorRect}
               onSubmit={(channel, note) => complete.mutate({ channel, note })}
               onClose={() => setPickerOpen(false)}
             />
